@@ -20,6 +20,11 @@ How it evolved, dated: In October 2026, during Unit 7, I installed ship-gate and
 Evidence: I could run the gate with:
 python3 ~/.claude/ship-gate/check_gate.py --branch --title "<PR title>" --body-file pr_draft.md
 The gate runs the checks in my manifest and then my pr-precheck. Depending on the branch, it can pass, block the PR and explain why, or refuse if something needed for the check is not ready.
+
+- pr-monitor: A runner that reads my PR's live state with read-only gh calls and drafts the matching next move to a file, using my own playbook.
+How it evolved, dated: In November 2026, during Unit 8, I installed the PR monitor and wrote my playbook, with a 21-day first-response threshold because no PR in this repo had been merged yet.
+Evidence: On Nov 3, 2026 it drafted my first and only nudge on PR #99. I checked it against my voice guide and posted it ([comment](https://github.com/codepath/pathreview-ai301-fa26-s3/pull/99#issuecomment-6619856139)). My walk-away rule now gives it 30 days.
+
 - unit-1 harness: A tool from the beginning of the course that I used for testing and evaluation. It stayed part of my toolkit while I added the newer tools.
 Beat 1
 Date: October 2026
