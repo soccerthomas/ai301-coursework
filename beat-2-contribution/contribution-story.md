@@ -65,7 +65,7 @@ ship-gate: It depends on the manifest being set up correctly, and some checks mi
 
 ## Why I Chose This Issue
 
-<!-- Why #61: what drew you to it, and why it was a realistic size. -->
+I picked issue #61 because it seemed like a manageable issue to start with, and the description was clear enough that I could understand what needed to be done. It was also a good opportunity to work with Python and SQLAlchemy, which I already had some familiarity with. I wanted something that would let me contribute without spending too much time just figuring out the overall codebase.
 
 
 ## Understanding the Issue
@@ -126,7 +126,9 @@ Maintainer Feedback: None yet as of Nov 3, 2026. I posted one nudge on Nov 3, 20
 
 ## Learnings and Reflections
 
-<!-- What you learned about contributing upstream and about your own tools. -->
+Working on a real open-source repository is pretty different from working on personal projects or assignments. Even when an issue seems straightforward, you have to understand how the existing code is structured and make sure your changes fit the project's conventions. My one-line fix still needed a regression test, a new dev dependency, and a mypy suppression I expected to remove but had to keep, because `make typecheck` showed it covered an unrelated `Redis()` problem.
+
+I was also surprised by how much time goes into understanding the code before writing anything. Next time, I'd spend more time exploring the repository, reading related code, and checking existing tests before jumping into implementation.
 
 
 ## Resources Used
