@@ -1,20 +1,28 @@
+# Contribution Story
+
 Student: Thomas Lavadinho
+
+Issue: https://github.com/codepath/pathreview-ai301-fa26-s3/issues/61
+Pull Request: https://github.com/codepath/pathreview-ai301-fa26-s3/pull/99
+
+## Toolkit
+
 I chose issue-scout, pr-precheck, voice-guard, and ship-gate because these were the tools that I used the most throughout the course. They also show how my toolkit changed over time. At first I was mainly trying to find good issues to work on, but later I started using tools to check my work and make sure a pull request was actually ready before opening it.
-issue-scout
+### issue-scout
 What it is, and the judgment hole I wrote: issue-scout helps me look through an issue and decide if it is something I should work on. The part I had to decide myself was what makes an issue a good choice. I looked at things like how clear the issue was, how big it seemed, and whether I had enough information to actually work on it.
 How it evolved, dated: In October 2026, I started using issue-scout mainly to help organize information about possible issues. As I used it more, I realized the useful part was not having the tool choose an issue for me. It was having the information organized enough that I could make the final decision myself.
 Evidence: issue-scout stayed as part of my toolkit even after I started adding tools for checking pull requests. I still needed it at the beginning of the process to help decide what work was realistic before moving on to planning and coding.
-pr-precheck
+### pr-precheck
 What it is, and the judgment hole I wrote: pr-precheck checks my work before I open a pull request. My judgment is in the rubric that decides what should be checked and what counts as ready. It can look at my code changes along with my plan, testing evidence, and PR draft.
 How it evolved, dated: In October 2026, I first built pr-precheck during Unit 4. At first it was being used in the course environment, but later I had to use it on a real repository and branch. By Unit 7, ship-gate was using my pr-precheck as part of its own check, so my original tool became part of a bigger workflow.
 Evidence: During Unit 7, ship-gate runs pr-precheck on the actual branch diff along with plan.md, test_evidence.md, and the PR draft. If something does not meet my rubric, the tool can report what did not pass so I know what to look at next.
-voice-guard
+### voice-guard
 What it is, and the judgment hole I wrote: voice-guard checks the writing in my pull request. I created a voice guide with rules for how I wanted the PR to sound. The main goal was to avoid sending unclear or bad PR descriptions even if the code itself was okay.
 How it evolved, dated: In October 2026, I worked on the voice guide during Unit 6. Later it was moved into its main location so other tools could use it. By Unit 7, voice-guard was connected to the PR workflow instead of just being something I checked separately.
 Evidence: One of the Unit 7 tests was running:
 claude "run this command: gh pr create --help"
 Since there was no PR body, voice-guard was supposed to stop the command. This helped show that it was actually connected to the PR process.
-ship-gate
+### ship-gate
 What it is, and the judgment hole I wrote: ship-gate is the final check before opening a pull request. It runs the checks that I put in ship-manifest.md and then runs my pr-precheck. The part I had to decide was which tests or checks were important enough that they needed to pass before I asked somebody else to review the PR.
 How it evolved, dated: In October 2026, during Unit 7, I installed ship-gate and created the manifest for my repository. This was different from the earlier tools because it connected several parts of my toolkit together. Instead of checking everything separately, I could run one gate before opening the PR.
 Evidence: I could run the gate with:
@@ -53,3 +61,79 @@ issue-scout: It only knows the information it can find about the issue and repos
 pr-precheck: It depends on the rubric I wrote, so it can miss something if my rubric does not cover it well.
 voice-guard: It checks against my voice guide, but good writing can still depend on the specific repository and maintainer.
 ship-gate: It depends on the manifest being set up correctly, and some checks might not be possible to run on my computer.
+
+
+## Why I Chose This Issue
+
+<!-- Why #61: what drew you to it, and why it was a realistic size. -->
+
+
+## Understanding the Issue
+
+The `/health` route's postgres probe in `api/routes/health.py` called `db.execute("SELECT 1")` with a raw SQL string. SQLAlchemy 2.x only accepts executable constructs, so the call raises `ArgumentError: Textual SQL expression 'SELECT 1' should be explicitly declared as text('SELECT 1')` during statement coercion, before it ever reaches the database.
+
+`health_check()` wraps each probe in a broad `except Exception`, so the error is swallowed and the endpoint answers `503` with `postgres: "unhealthy"` even when the database is up. The redis probe failing in the same response is a separate defect (#62) and not part of this issue.
+
+
+## Reproduction Process
+
+Before proposing anything I claimed the issue and said I would reproduce it myself, since classmates had already posted reproductions and I wanted my own evidence rather than repeating theirs.
+
+I reproduced on commit `2f4e82f` with Python 3.13.15, SQLAlchemy 2.1.1 and aiosqlite 0.22.1 on WSL2 Ubuntu, using my own script (`repro_61_thomas.py`) that drives the real `health_check()` handler.
+
+**Deviation:** I don't have Docker in WSL2, so I couldn't run the documented Postgres stack. I used an `AsyncSession` bound to `sqlite+aiosqlite` instead. The error is raised during SQLAlchemy's statement coercion, before any dialect-specific behavior, so the substitution still answers the question. I did not confirm it against a live Postgres end to end.
+
+The script ran three steps:
+
+1. Raw string `db.execute("SELECT 1")` raised the exact `ArgumentError` the issue names.
+2. Control: the same session ran `db.execute(text("SELECT 1"))` and returned `1`, so the database was reachable and the SQL was valid. Only the raw-string form failed.
+3. Calling `health_check()` directly logged `postgres_health_check_failed` and returned `503` with `postgres: "unhealthy"`.
+
+
+## Solution Approach
+
+I posted my plan on the issue thread first: wrap the probe's `SELECT 1` in `sqlalchemy.text()`, the form SQLAlchemy 2.x itself asks for in the error message. It is the smallest change that fixes the cause instead of the symptom.
+
+I kept the PR to #61 only. The redis probe failure (#62) showed up in the same response, but it is a separate, pre-existing bug, so I left it untouched and said so in the PR.
+
+
+## Testing Strategy
+
+- **Regression test:** I added `tests/unit/test_health.py` with `test_postgres_probe_reports_healthy_when_reachable`, which uses an in-memory SQLite substitute and asserts the postgres probe reports `healthy`.
+- **Repro re-run on the branch:** before the fix the raw-string call raised `ArgumentError` and postgres was always `unhealthy`; after it, `text("SELECT 1")` succeeds and postgres reports `healthy`.
+- **Full suite:** `make test-unit` passed (376 passed, 53 pre-existing xfailed, unrelated to this change). `make lint` and `make typecheck` both passed.
+- **CI:** all five jobs are green on the PR.
+- **Not applicable:** integration tests (no integration-level touchpoints) and removing an xfail marker (I checked `tests/` and no xfail test covered this bug).
+
+
+## Implementation Notes
+
+- `api/routes/health.py`: wrapped the postgres probe's `SELECT 1` in `text()` and added the `sqlalchemy.text` import.
+- `tests/unit/test_health.py` (new): the regression test above.
+- `pyproject.toml`: added `aiosqlite` as a dev dependency for the test's SQLite substitute, and restored the `call-overload` mypy suppression for `api.routes.health`.
+
+**Deviation from my plan:** I expected this fix to also remove the need for the `call-overload` suppression. `make typecheck` showed that suppression covers an unrelated, pre-existing `Redis()` overload mismatch, so I restored it rather than leave typecheck red, and noted it for reviewers in the PR.
+
+
+## Pull Request
+
+PR: https://github.com/codepath/pathreview-ai301-fa26-s3/pull/99
+
+Status: Open as of Nov 3, 2026. 5 checks passing, mergeable, no review yet.
+
+Maintainer Feedback: None yet as of Nov 3, 2026. I posted one nudge on Nov 3, 2026 ([comment](https://github.com/codepath/pathreview-ai301-fa26-s3/pull/99#issuecomment-6619856139)).
+
+
+## Learnings and Reflections
+
+<!-- What you learned about contributing upstream and about your own tools. -->
+
+
+## Resources Used
+
+- Issue #61: https://github.com/codepath/pathreview-ai301-fa26-s3/issues/61
+- Issue #62 (redis probe, kept out of scope): https://github.com/codepath/pathreview-ai301-fa26-s3/issues/62
+- SQLAlchemy `text()` documentation: https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.text
+- SQLAlchemy 2.0 migration guide: https://docs.sqlalchemy.org/en/20/changelog/migration_20.html
+- The repo's README and Makefile targets (`make test-unit`, `make lint`, `make typecheck`)
+- My course toolkit (issue-scout, pr-precheck, voice-guard, ship-gate, pr-monitor) and Claude Code
