@@ -34,7 +34,11 @@ I picked these three because each one changed for a real reason I can point to: 
 
 ## Inventory
 
-- issue-select: Unit 1 tool that ranks candidate issues against my fit profile (Python, API or data-parsing work, no RAG) with checks like maintainer_alive and nobody_on_it. It passed eval at 19/20 on 2026-09-16 and picked issue #61, but it barely changed after Unit 1.
+- issue-select: Unit 1 tool that ranks candidate issues against my fit profile (Python, API or data-parsing work, no RAG). It passed eval at 19/20 on 2026-09-16 and picked issue #61, but it barely changed after Unit 1.
+- issue-scout: organizes what I know about a candidate issue so I make the final call myself instead of the tool picking for me. Still the first step of my workflow.
+- voice-guard: checks my PR text against my voice guide. In Unit 7 it was wired into the PR flow and blocked a `gh pr create` that had no body.
+- ship-gate: Unit 7 gate that runs the checks in my ship-manifest.md and then pr-precheck on the real branch diff, so one command decides if a PR is ready to open.
+- pr-monitor: Unit 8 runner that reads PR #99's live state and drafts the next move from my playbook. It drafted my one nudge on 2026-11-03, which I checked against my voice guide and posted.
 
 ## The Arc
 
@@ -76,4 +80,4 @@ The biggest gap in my toolkit is that every tool reads text and can't run anythi
 
 repro-check: it trusts what the report says about the environment and can't tell whether the steps would actually reproduce on a different machine.
 plan-check: it can't verify claims that need code to run, so it passed my wrong call-overload assumption.
-pr-precheck: I graded PR #99 by applying its rubric by hand instead of a full live-mode run, so its live path has not been exercised end to end on a real PR.
+pr-precheck: before opening PR #99 I applied its rubric to my draft by hand instead of running it live, and it only reads text, so it couldn't have caught the call-overload mistake without the repo's own checks being run.
